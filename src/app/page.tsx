@@ -8,6 +8,7 @@ import WalletConnectProvider from "@walletconnect/web3-provider";
 import networkConfig from '../../config/network'; // Replace with your network configuration
 import { estimateSendFees, sendTokensToDestination } from '../../utils/functions'; // Replace with your actual function or logic
 import { FaPowerOff } from 'react-icons/fa'; // Import power icon
+import { FaSpinner } from 'react-icons/fa'; // Import spinner icon for progress
 
 declare global {
   interface Window {
@@ -33,6 +34,7 @@ export default function Home() {
   const [amount, setAmount] = useState<string>('');
   const [tokenBalance, setTokenBalance] = useState<string>('0');
   const [error, setError] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false); // New loading state
 
   useEffect(() => {
     const preferredWallet = localStorage.getItem('preferredWallet');
@@ -43,6 +45,7 @@ export default function Home() {
 
   useEffect(() => {
     if (signer && walletAddress) {
+      console.log('Fetching token balance... ' +walletAddress );
       fetchTokenBalance(signer, walletAddress);
     }
   }, [signer, walletAddress, chainFrom]);
@@ -128,7 +131,7 @@ export default function Home() {
       const balance = await tokenContract.balanceOf(address);
       console.log(`Balance fetched: ${ethers.formatUnits(balance, 18)}`);
       
-      setTokenBalance(formatUnits(balance, 18)); // Assuming the token has 18 decimals
+      setTokenBalance(ethers.formatUnits(balance, 18)); // Assuming the token has 18 decimals
     } catch (err) {
       if(tokenBalance === '0') {
         setError('Failed to fetch token balance. Please swith to the correct network.');
@@ -155,7 +158,8 @@ export default function Home() {
   
     try {
       setError(''); // Clear any previous errors
-  
+      setLoading(true); // Start loading
+      
       const signerInstance = await provider.getSigner(); // Await to resolve JsonRpcSigner
 
       const Options = require('@layerzerolabs/lz-v2-utilities').Options;
@@ -168,7 +172,8 @@ export default function Home() {
         amount.toString(), 
         chainFrom === 'base', 
         optionsData, 
-        signerInstance
+        signerInstance,
+        networkConfig.mainnet[chainFrom]
       );
       
       // Prepare the msgFee object using the estimated fees
@@ -187,60 +192,74 @@ export default function Home() {
         destinationOftAddress: tokenAddresses[chainTo], // Use the appropriate token address
         sourceAdapterAddress: networkConfig.mainnet[chainFrom].adapterAddress, // Dynamic adapter address        
         DESTINATION_ENDPOINT_ID: networkConfig.mainnet[chainTo].endpointId, // Dynamic endpoint ID
+        network: networkConfig.mainnet[chainFrom]
       });
   
       console.log('Tokens sent successfully:', receipt);
   
     } catch (err: any) {
-          let errorMessage = 'Failed to execute swap: ';
-            
-          if (err.code === 'ACTION_REJECTED' && err.info?.error?.message) {
-            errorMessage += err.info.error.message;
-          } else if (err.message) {
-            errorMessage += err.message;
-          } else {
-            errorMessage += 'An unknown error occurred.';
-          }
-
-          if (err.transactionHash) {
-            errorMessage += ` Transaction hash: ${err.transactionHash}`;
-          }
-
-          setError(errorMessage);
-          console.error('Swap execution error:', err);    }
+      let errorMessage = 'Failed to execute swap: ';
+      
+      if (err.code === 'ACTION_REJECTED') {
+          errorMessage += 'Action was rejected by the user. ';
+      } else if (err.code === 'INSUFFICIENT_FUNDS') {
+          errorMessage += 'Insufficient funds for gas. ';
+      } else if (err.code === 'NETWORK_ERROR') {
+          errorMessage += 'A network error occurred. ';
+      } else if (err.code === -32000) {
+          errorMessage += `Insufficient funds for gas. Current balance: ${err.data.message}`;
+      } else if (err.code === -32603) {
+          errorMessage += `Internal JSON-RPC error: ${err.data?.message || err.message}`;
+      } else if (err.message.includes('missing revert data')) {
+          errorMessage += 'Transaction failed with a missing revert data error.';
+      } else if (err.message) {
+          errorMessage += err.message;
+      } else {
+          errorMessage += 'An unknown error occurred.';
+      }
+  
+      if (err.transactionHash) {
+          errorMessage += ` Transaction hash: ${err.transactionHash}`;
+      }
+  
+      setError(errorMessage);
+      console.error('Swap execution error:', err);
+  } finally {
+      setLoading(false); // Stop loading
+    }
   };
   
 
   return (
     <Layout>
-     <div className={styles.topBar}>
-  {!walletAddress ? (
-    <div className={styles.walletButtons}>
-          <button className={`${styles.button} ${styles.metamaskButton}`} onClick={() => connectWallet('metamask')}>
-            <img src="metamask.png" alt="MetaMask" className={styles.walletIcon} /> 
-            Connect MetaMask
+      <div className={styles.topBar}>
+        {!walletAddress ? (
+          <div className={styles.walletButtons}>
+            <button className={`${styles.button} ${styles.metamaskButton}`} onClick={() => connectWallet('metamask')}>
+              <img src="metamask.png" alt="MetaMask" className={styles.walletIcon} /> 
+              Connect MetaMask
+            </button>
+            <button className={`${styles.button} ${styles.walletConnectButton}`} onClick={() => connectWallet('walletconnect')}>
+              <img src="walletconnect.jpg" alt="WalletConnect" className={styles.walletIcon} />
+              Connect WalletConnect
+            </button>
+          </div>
+        ) : (
+          <button className={`${styles.button} ${styles.disconnectButton}`} onClick={disconnectWallet}>
+            <FaPowerOff className={styles.powerIcon} /> Disconnect
           </button>
-          <button className={`${styles.button} ${styles.walletConnectButton}`} onClick={() => connectWallet('walletconnect')}>
-            <img src="walletconnect.jpg" alt="WalletConnect" className={styles.walletIcon} />
-            Connect WalletConnect
-          </button>
-        </div>
-      ) : (
-        <button className={`${styles.button} ${styles.disconnectButton}`} onClick={disconnectWallet}>
-          <FaPowerOff className={styles.powerIcon} /> Disconnect
-        </button>
-      )}
-    </div>
+        )}
+      </div>
+      
       <div className={styles.container}>
+        {loading && <div className={styles.loading}><FaSpinner className={styles.spinner} /> Awaiting confirmation...</div>} {/* Progress bar */}
 
-      <img 
-  src="favicon.ico" 
-  alt="whale" 
-  className={styles.walletIcon} 
-  style={{ width: '250px', height: '250px' }} 
-/>
-
-
+        <img 
+          src="favicon.ico" 
+          alt="whale" 
+          className={styles.walletIcon} 
+          style={{ width: '250px', height: '250px' }} 
+        />
 
         <h1 className={styles.title}>Welcome to Whale Portal</h1>
         <div className={styles.swapContainer}>
@@ -281,7 +300,7 @@ export default function Home() {
             </select>
           </div>
           {error && <p className={styles.error}>{error}</p>}
-          <button className={styles.swapButton} onClick={handleSwap}>
+          <button className={styles.swapButton} onClick={handleSwap} disabled={loading}>
             Swap
           </button>
         </div>

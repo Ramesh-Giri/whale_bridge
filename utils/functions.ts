@@ -9,15 +9,23 @@ interface PeerContractOptions {
 }
 
 
-export async function estimateSendFees(dstEid: any, amountToSend: any, isBase: boolean, encodedOptions: string, signer: ethers.Signer) {
-    const network = networkConfig.mainnet.base;
+export async function estimateSendFees(dstEid: any, amountToSend: any, isBase: boolean, encodedOptions: string, signer: ethers.Signer, network: any) {
+    
     const whaleERC20Contract = new ethers.Contract(
         network.oftAddress,
         require('../abi/WhaleTokens.json'),
         signer
     );
 
-    const currentBalance = await whaleERC20Contract.balanceOf(await signer.getAddress());
+    //print all the received data
+    console.log(`Destination EID: ${dstEid}`);
+    console.log(`Amount to send: ${amountToSend}`);
+    console.log(`OFT Adress: ${network.oftAddress}`);
+    
+      
+
+    const signerAddress = await signer.getAddress();
+    const currentBalance = await whaleERC20Contract.balanceOf(signerAddress);
     console.log(`Current token balance: ${ethers.formatUnits(currentBalance, 18)}`);
 
     const approvalAmount = ethers.parseUnits(amountToSend, 18); // 18 decimals for most ERC-20 tokens
@@ -36,11 +44,20 @@ export async function estimateSendFees(dstEid: any, amountToSend: any, isBase: b
     };
 
     try {
-        const adapterContract = new ethers.Contract(
-            network.adapterAddress,
-            require('../contracts/WhaleAdapter.json').abi,
-            signer
-        );
+          // Conditionally load the ABI based on the network
+          let contractABI;
+          if (network.chainId === 'base') {
+            // Use WhaleAdapter ABI for Base
+            contractABI = require('../contracts/WhaleAdapter.json').abi;
+            console.log('Using WhaleAdapter ABI for Base');
+          } else {
+            // Use WhaleOFT ABI for other networks
+            contractABI = require('../contracts/WhaleOFT.json').abi;
+            console.log('Using WhaleOFT ABI for other networks');
+          }
+
+          // Instantiate the contract with the dynamically chosen ABI
+          const adapterContract = new ethers.Contract(network.adapterAddress, contractABI, signer);
         const feeEstimate = await adapterContract.quoteSend(_sendParam, false);
 
         console.log(`Estimated fees: ${ethers.formatUnits(feeEstimate.nativeFee, "ether")} ETH, ${ethers.formatUnits(feeEstimate.lzTokenFee, 18)} LZT`);
@@ -63,6 +80,7 @@ export async function sendTokensToDestination({
   destinationOftAddress,
   sourceAdapterAddress,
   DESTINATION_ENDPOINT_ID,
+  network
 }: SendTokensParams): Promise<ethers.TransactionReceipt | void> {
   try {
     // Validate input parameters
@@ -89,11 +107,20 @@ export async function sendTokensToDestination({
 
     console.log(`Sending ${amountToSend} tokens from ${sourceAdapterAddress}`);
 
-    const adapterContract = new ethers.Contract(
-      sourceAdapterAddress,
-      require('../contracts/WhaleAdapter.json').abi,
-      signer
-  );
+    // Conditionally load the ABI based on the network
+    let contractABI;
+    if (network.chainId === 'base') {
+      // Use WhaleAdapter ABI for Base
+      contractABI = require('../contracts/WhaleAdapter.json').abi;
+      console.log('Using WhaleAdapter ABI for Base');
+    } else {
+      // Use WhaleOFT ABI for other networks
+      contractABI = require('../contracts/WhaleOFT.json').abi;
+      console.log('Using WhaleOFT ABI for other networks');
+    }
+
+    // Instantiate the contract with the dynamically chosen ABI
+    const adapterContract = new ethers.Contract(sourceAdapterAddress, contractABI, signer);
 
   const signerAddress = await signer.getAddress();
 
@@ -143,4 +170,5 @@ interface SendTokensParams {
   destinationOftAddress: string;
   sourceAdapterAddress: string;
   DESTINATION_ENDPOINT_ID: string;
+  network: any;
 }
