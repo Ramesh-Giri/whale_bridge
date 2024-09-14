@@ -102,16 +102,16 @@ export async function sendTokensToDestination({
     const balanceBefore = await signer.provider?.getBalance(signerAddress);
     console.log(`Balance before transaction: ${ethers.formatUnits(balanceBefore!, "ether")} ETH`);
     
-       // Estimate gas
-       const gasEstimate = await adapterContract.estimateGas.send(
-        sendParam,
-        msgFee,
-        await signer.getAddress(),
-        { value: msgFee.nativeFee }
-      );
-      console.log(`Estimated Gas: ${gasEstimate.toString()}`);
+      //  // Estimate gas
+      //  const gasEstimate = await adapterContract.estimateGas.send(
+      //   sendParam,
+      //   msgFee,
+      //   await signer.getAddress(),
+      //   { value: msgFee.nativeFee }
+      // );
+      // console.log(`Estimated Gas: ${gasEstimate.toString()}`);
   
-      const gasLimitWithBuffer = BigInt(gasEstimate.toString()) + BigInt(10000);
+      // const gasLimitWithBuffer = BigInt(gasEstimate.toString()) + BigInt(10000);
 
       
     
