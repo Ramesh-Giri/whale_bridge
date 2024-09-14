@@ -7,6 +7,7 @@ import { BrowserProvider, Contract, formatUnits } from 'ethers';
 import WalletConnectProvider from "@walletconnect/web3-provider";
 import networkConfig from '../../config/network'; // Replace with your network configuration
 import { estimateSendFees, sendTokensToDestination } from '../../utils/functions'; // Replace with your actual function or logic
+import { FaPowerOff } from 'react-icons/fa'; // Import power icon
 
 declare global {
   interface Window {
@@ -212,24 +213,36 @@ export default function Home() {
 
   return (
     <Layout>
-      <div className={styles.topBar}>
-        {!walletAddress ? (
-          <div className={styles.walletButtons}>
-            <button className={styles.button} onClick={() => connectWallet('metamask')}>
-              Connect MetaMask
-            </button>
-            <button className={styles.button} onClick={() => connectWallet('walletconnect')}>
-              Connect WalletConnect
-            </button>
-          </div>
-        ) : (
-          <button className={styles.button} onClick={disconnectWallet}>
-            Disconnect Wallet
+     <div className={styles.topBar}>
+  {!walletAddress ? (
+    <div className={styles.walletButtons}>
+          <button className={`${styles.button} ${styles.metamaskButton}`} onClick={() => connectWallet('metamask')}>
+            <img src="metamask.png" alt="MetaMask" className={styles.walletIcon} /> 
+            Connect MetaMask
           </button>
-        )}
-      </div>
+          <button className={`${styles.button} ${styles.walletConnectButton}`} onClick={() => connectWallet('walletconnect')}>
+            <img src="walletconnect.jpg" alt="WalletConnect" className={styles.walletIcon} />
+            Connect WalletConnect
+          </button>
+        </div>
+      ) : (
+        <button className={`${styles.button} ${styles.disconnectButton}`} onClick={disconnectWallet}>
+          <FaPowerOff className={styles.powerIcon} /> Disconnect
+        </button>
+      )}
+    </div>
       <div className={styles.container}>
-        <h1 className={styles.title}>Welcome to Whale Bridge</h1>
+
+      <img 
+  src="favicon.ico" 
+  alt="whale" 
+  className={styles.walletIcon} 
+  style={{ width: '250px', height: '250px' }} 
+/>
+
+
+
+        <h1 className={styles.title}>Welcome to Whale Portal</h1>
         <div className={styles.swapContainer}>
           <div className={styles.swapRow}>
             <select
