@@ -11,17 +11,17 @@ interface PeerContractOptions {
 
 export async function estimateSendFees(dstEid: any, amountToSend: any, isBase: boolean, encodedOptions: string, signer: ethers.Signer) {
     const network = networkConfig.mainnet.base;
-    const provider = signer.provider as ethers.JsonRpcProvider;
     const whaleERC20Contract = new ethers.Contract(
         network.oftAddress,
         require('../abi/WhaleTokens.json'),
-        signer.connect(provider)
+        signer
     );
 
     const currentBalance = await whaleERC20Contract.balanceOf(await signer.getAddress());
     console.log(`Current token balance: ${ethers.formatUnits(currentBalance, 18)}`);
 
-    const approvalAmount = amountToSend;
+    const approvalAmount = ethers.parseUnits(amountToSend, 18); // 18 decimals for most ERC-20 tokens
+    
     const approveTx = await whaleERC20Contract.approve(network.adapterAddress, approvalAmount);
     await approveTx.wait();
 
@@ -39,7 +39,7 @@ export async function estimateSendFees(dstEid: any, amountToSend: any, isBase: b
         const adapterContract = new ethers.Contract(
             network.adapterAddress,
             require('../contracts/WhaleAdapter.json').abi,
-            signer.connect(provider)
+            signer
         );
         const feeEstimate = await adapterContract.quoteSend(_sendParam, false);
 
@@ -62,7 +62,6 @@ export async function sendTokensToDestination({
   signer,
   destinationOftAddress,
   sourceAdapterAddress,
-  ADAPTER_ABI,
   DESTINATION_ENDPOINT_ID,
 }: SendTokensParams): Promise<ethers.TransactionReceipt | void> {
   try {
@@ -88,33 +87,40 @@ export async function sendTokensToDestination({
       oftCmd: ethers.toUtf8Bytes("")
     };
 
-    const adapterContract = new ethers.Contract(sourceAdapterAddress, ADAPTER_ABI, signer);
+    console.log(`Sending ${amountToSend} tokens from ${sourceAdapterAddress}`);
+
+    const adapterContract = new ethers.Contract(
+      sourceAdapterAddress,
+      require('../contracts/WhaleAdapter.json').abi,
+      signer
+  );
+
+  const signerAddress = await signer.getAddress();
+
 
     // Log the user's balance before sending tokens
-    const balanceBefore = await signer.provider?.getBalance(await signer.getAddress());
+    const balanceBefore = await signer.provider?.getBalance(signerAddress);
     console.log(`Balance before transaction: ${ethers.formatUnits(balanceBefore!, "ether")} ETH`);
     
+       // Estimate gas
+       const gasEstimate = await adapterContract.estimateGas.send(
+        sendParam,
+        msgFee,
+        await signer.getAddress(),
+        { value: msgFee.nativeFee }
+      );
+      console.log(`Estimated Gas: ${gasEstimate.toString()}`);
+  
+      const gasLimitWithBuffer = BigInt(gasEstimate.toString()) + BigInt(10000);
 
-    // Estimate gas
-    const gasEstimate = await adapterContract.estimateGas.send(
-      sendParam,
-      msgFee,
-      await signer.getAddress(),
-      { value: msgFee.nativeFee }
-    );
-    console.log(`Estimated Gas: ${gasEstimate.toString()}`);
-
-    const gasLimitWithBuffer = BigInt(gasEstimate.toString()) + BigInt(10000);
-
-
-
+      
+    
     // Sending tokens, passing msgFee as transaction options
     const txResponse = await adapterContract.send(
       sendParam,
       msgFee,
-      await signer.getAddress(),
+      signerAddress,
       {
-        gasLimit: gasLimitWithBuffer, // Add buffer as BigInt
         value: msgFee.nativeFee, // Ensure to pass the payable amount if required                
       }
     );
@@ -126,8 +132,8 @@ export async function sendTokensToDestination({
     console.log(`Transaction confirmed in block: ${receipt.blockNumber}`);
 
     // Log the user's balance after sending tokens
-    const balanceAfter = await signer.provider?.getBalance(await signer.getAddress());
-console.log(`Balance after transaction: ${ethers.formatUnits(balanceAfter!, "ether")} ETH`);
+    const balanceAfter = await signer.provider?.getBalance(signerAddress);
+    console.log(`Balance after transaction: ${ethers.formatUnits(balanceAfter!, "ether")} ETH`);
 
 
     return receipt; // Returning the receipt might be useful for further processing
@@ -147,6 +153,5 @@ interface SendTokensParams {
   signer: ethers.Signer;
   destinationOftAddress: string;
   sourceAdapterAddress: string;
-  ADAPTER_ABI: any; // Use the appropriate type if you have one
   DESTINATION_ENDPOINT_ID: string;
 }

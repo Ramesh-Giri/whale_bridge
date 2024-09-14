@@ -184,8 +184,7 @@ export default function Home() {
         encodedOptions: optionsData,
         signer: signerInstance,
         destinationOftAddress: tokenAddresses[chainTo], // Use the appropriate token address
-        sourceAdapterAddress: networkConfig.mainnet[chainFrom].adapterAddress, // Dynamic adapter address
-        ADAPTER_ABI: require('../../contracts/WhaleAdapter.json').abi, // Use correct ABI
+        sourceAdapterAddress: networkConfig.mainnet[chainFrom].adapterAddress, // Dynamic adapter address        
         DESTINATION_ENDPOINT_ID: networkConfig.mainnet[chainTo].endpointId, // Dynamic endpoint ID
       });
   
