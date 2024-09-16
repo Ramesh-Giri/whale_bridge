@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Layout from './layout';
 import styles from './page.module.css';
 import { BrowserProvider, Contract, formatUnits } from 'ethers';
-import WalletConnectProvider from "@walletconnect/web3-provider";
+import EthereumProvider from "@walletconnect/ethereum-provider";
 import networkConfig from '../../config/network'; // Replace with your network configuration
 import { estimateSendFees, sendTokensToDestination } from '../../utils/functions'; // Replace with your actual function or logic
 import { FaPowerOff } from 'react-icons/fa'; // Import power icon
@@ -76,11 +76,22 @@ export default function Home() {
       }
     } else if (preferredWallet === "walletconnect") {
       try {
-        const walletConnectProvider = new WalletConnectProvider({
-          infuraId: "6ae62b79ee1341898f1ac24796ada458",
+        const walletConnectProvider = await  EthereumProvider.init({
+          projectId: "003b993f58d893dfc9c0d187d28acc10",
+          metadata: {
+            name: "Whale Bot",
+            description:
+              "Whale Bot is a Telegram bot that allows users to interact with the Whale token's features.",
+            url: "https://www.whale.army",
+            icons: ["https://avatars.githubusercontent.com/u/37784886"],
+          },  
+          showQrModal: true,
+          optionalChains: [1, 137, 2020], // Optional chain IDs
         });
         await walletConnectProvider.enable();
+
         providerInstance = new ethers.BrowserProvider(walletConnectProvider);
+
 
         // Store the connected wallet in local storage
         localStorage.setItem('preferredWallet', 'walletconnect');
